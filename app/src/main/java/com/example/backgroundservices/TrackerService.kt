@@ -22,6 +22,11 @@ class TrackerService : Service(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var accelerometer: Sensor? = null
 
+    private var jumpCount = 0
+    private var stepCount = 0
+    private var lastJumpTime: Long = 0
+    private var lastStepTime: Long = 0
+
     private val NOTIFICATION_CHANNEL_ID_SERVICE_RUNNING = "tracker_service_running"
     private val NOTIFICATION_CHANNEL_ID_JUMP_DETECTED = "tracker_jump_detected"
     private val NOTIFICATION_ID_SERVICE_RUNNING = 1
@@ -73,6 +78,9 @@ class TrackerService : Service(), SensorEventListener {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d("TrackerService", "Service onStartCommand")
 
+        jumpCount = 0
+        stepCount = 0
+
         startForeground(
             NOTIFICATION_ID_SERVICE_RUNNING,
             buildServiceRunningNotification()
@@ -103,16 +111,23 @@ class TrackerService : Service(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_ACCELEROMETER) {
-            val y = event.values[1]
-            val jumpThreshold = 15.0
+            val absY = abs(event.values[1])
+            val currentTime = System.currentTimeMillis()
 
-            if (abs(y) > jumpThreshold) {
-                Log.d("Tracker Service", "Lompatan Terdeteksi! y:$y")
+            if (absY > 15.0 && currentTime - lastJumpTime > 800) {
+                jumpCount++
+                lastJumpTime = currentTime
+                Log.d("TrackerService", "Lompatan Terdeteksi! Total: $jumpCount")
+            } else if (absY > 12.0 && absY <= 15.0 && currentTime - lastStepTime > 500) {
+                stepCount++
+                lastStepTime = currentTime
+                Log.d("TrackerService", "Langkah Terdeteksi! Total: $stepCount")
 
-                sensorManager.unregisterListener(this)
-
-                showJumpNotification()
-                stopSelf()
+                // Syarat Latihan Selesai: Berjalan > 2 langkah
+                if (stepCount > 2) {
+                    sensorManager.unregisterListener(this)
+                    stopSelf() // Hentikan service
+                }
             }
         }
     }

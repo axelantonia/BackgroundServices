@@ -26,9 +26,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         statusTextView = findViewById(R.id.statusTextView)
-        btnStart = findViewById(R.id.btnStart)
+        btnMulai = findViewById(R.id.btnMulai)
 
-        btnStart.setOnClickListener {
+        btnMulai.setOnClickListener {
             if (hasAllPermissions()) {
                 startTrackerService()
             } else {
@@ -60,7 +60,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var statusTextView: TextView
-    private lateinit var btnStart: Button
+    private lateinit var btnMulai: Button
 
 
     companion object {
