@@ -14,12 +14,14 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Tekan tombol untuk memulai pelacakan\nService akan berhenti saat Anda Melompat"
-        android:textAlignment="center" />
+        android:textAlignment="center"
+        android:id="@+id/statusTextView"/>
 
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
+        android:id="@+id/btnStart"
         android:text="Mulai Lacak Aktivitas" />
 
 </LinearLayout>

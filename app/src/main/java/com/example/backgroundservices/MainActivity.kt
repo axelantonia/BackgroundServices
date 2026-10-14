@@ -25,6 +25,9 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
+        statusTextView = findViewById(R.id.statusTextView)
+        btnStart = findViewById(R.id.btnStart)
+
         btnStart.setOnClickListener {
             if (hasAllPermissions()) {
                 startTrackerService()
@@ -36,6 +39,9 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
+
+        handleIntent(intent)
+
     }
 
     private val permissionsToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
@@ -55,6 +61,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var statusTextView: TextView
     private lateinit var btnStart: Button
+
 
     companion object {
         const val ACTION_SERVICE_STOPPED_JUMP = "com.example.backgroundservices"
