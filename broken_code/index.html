@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GudangKita — Latihan Debugging</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#"><span class="brand-icon">G</span> Gudang<span>Kita</span></a>
+    <div class="topbar-right"><span class="status-dot"></span> Mode latihan <span class="avatar">MA</span></div>
+  </header>
+
+  <main class="container">
+    <section class="intro">
+      <div><p class="eyebrow">WORKSPACE / INVENTARIS</p><h1>Ringkasan gudang</h1><p class="subheading">Pantau stok dan kelola barang dalam satu tempat.</p></div>
+      <button class="button primary" id="add-item-button"><span>＋</span> Tambah barang</button>
+    </section>
+
+    <section class="stats" aria-label="Ringkasan inventaris">
+      <article class="stat-card"><div class="stat-label">Total barang <span class="stat-icon blue">▦</span></div><strong id="total-items">—</strong><small>Jenis barang terdaftar</small></article>
+      <article class="stat-card"><div class="stat-label">Total unit <span class="stat-icon purple">◫</span></div><strong id="total-units">—</strong><small>Unit di semua kategori</small></article>
+      <article class="stat-card"><div class="stat-label">Stok menipis <span class="stat-icon orange">⌁</span></div><strong id="low-stock">—</strong><small>Perlu segera diperiksa</small></article>
+      <article class="stat-card"><div class="stat-label">Nilai inventaris <span class="stat-icon green">↗</span></div><strong id="total-value">—</strong><small>Estimasi nilai seluruh stok</small></article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading"><div><h2>Daftar barang</h2><p>Kelola dan cari barang inventaris kamu.</p></div><button class="button ghost" id="export-button">↓ <span>Ekspor CSV</span></button></div>
+      <div class="toolbar">
+        <label class="search"><span>⌕</span><input id="search-input" type="search" placeholder="Cari nama atau kategori..." autocomplete="off"></label>
+        <select id="category-filter" aria-label="Filter kategori"><option value="all">Semua kategori</option><option value="Elektronik">Elektronik</option><option value="Alat tulis">Alat tulis</option><option value="Furnitur">Furnitur</option><option value="Lainnya">Lainnya</option></select>
+        <select id="sort-select" aria-label="Urutkan barang"><option value="name">Urutkan: Nama</option><option value="stock">Urutkan: Stok</option><option value="price">Urutkan: Harga</option></select>
+      </div>
+      <div class="table-wrap"><table><thead><tr><th>BARANG</th><th>KATEGORI</th><th>STOK</th><th>HARGA / UNIT</th><th>NILAI STOK</th><th></th></tr></thead><tbody id="inventory-body"></tbody></table></div>
+      <div class="empty-state" id="empty-state" hidden><div class="empty-icon">⌕</div><strong>Barang tidak ditemukan</strong><p>Coba ubah kata pencarian atau filter.</p></div>
+      <div class="table-footer"><span id="table-count">Memuat barang...</span><button class="button text-button" id="reset-button">Reset data demo</button></div>
+    </section>
+    <p class="footnote">Data latihan tersimpan di browser kamu <span>·</span> Dibuat untuk latihan debugging</p>
+  </main>
+
+  <dialog id="item-dialog">
+    <form id="item-form">
+      <div class="dialog-heading"><div><p class="eyebrow">INVENTARIS</p><h2>Tambah barang</h2></div><button type="button" class="close-button" id="close-dialog" aria-label="Tutup">×</button></div>
+      <label>Nama barang<input name="name" id="item-name" required placeholder="Contoh: Keyboard mekanik"></label>
+      <div class="form-row"><label>Kategori<select name="category" id="item-category"><option>Elektronik</option><option>Alat tulis</option><option>Furnitur</option><option>Lainnya</option></select></label><label>Jumlah stok<input name="stock" id="item-stock" type="number" min="0" required placeholder="0"></label></div>
+      <label>Harga per unit<input name="price" id="item-price" type="number" min="0" required placeholder="0"></label>
+      <div class="dialog-actions"><button type="button" class="button ghost" id="cancel-dialog">Batal</button><button class="button primary" type="submit">Simpan barang</button></div>
+    </form>
+  </dialog>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>

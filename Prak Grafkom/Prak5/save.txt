@@ -1,0 +1,190 @@
+import { Limb, Mat } from "./Limb.js";
+
+function main() {
+    /** @type {HTMLCanvasElement} */
+    var CANVAS = document.getElementById("mycanvas");
+    CANVAS.width = window.innerWidth;
+    CANVAS.height = window.innerHeight;
+
+    /*===================== GET WEBGL CONTEXT ===================== */
+    /** @type {WebGLRenderingContext} */
+    var GL;
+    try {
+        GL = CANVAS.getContext("webgl", { antialias: true });
+    } catch (e) {
+        alert("WebGL context cannot be initialized");
+        return false;
+    }
+
+    /*========================= SHADERS ========================= */
+    var shader_vertex_source = `
+        attribute vec3 position;
+        attribute vec3 normal;
+        uniform mat4 Pmatrix, Vmatrix, Mmatrix;
+        uniform vec3 color;
+        varying vec3 vColor;
+        varying vec3 vNormal;
+
+        void main(void) {
+            gl_Position = Pmatrix * Vmatrix * Mmatrix * vec4(position, 1.);
+            vNormal = mat3(Mmatrix) * normal;
+            vColor = color;
+        }`;
+
+    var shader_fragment_source = `
+        precision mediump float;
+        varying vec3 vColor;
+        varying vec3 vNormal;
+
+        void main(void) {
+            vec3 L = normalize(vec3(0.4, 0.8, 1.0));
+            float d = max(dot(normalize(vNormal), L), 0.0);
+            gl_FragColor = vec4(vColor * (0.45 + 0.6 * d), 1.);
+        }`;
+
+    var compile_shader = function (source, type, typeString) {
+        var shader = GL.createShader(type);
+        GL.shaderSource(shader, source);
+        GL.compileShader(shader);
+        if (!GL.getShaderParameter(shader, GL.COMPILE_STATUS)) {
+            alert("ERROR IN " + typeString + " SHADER: " + GL.getShaderInfoLog(shader));
+            return false;
+        }
+        return shader;
+    };
+    var shader_vertex = compile_shader(shader_vertex_source, GL.VERTEX_SHADER, "VERTEX");
+    var shader_fragment = compile_shader(shader_fragment_source, GL.FRAGMENT_SHADER, "FRAGMENT");
+
+    var SHADER_PROGRAM = GL.createProgram();
+    GL.attachShader(SHADER_PROGRAM, shader_vertex);
+    GL.attachShader(SHADER_PROGRAM, shader_fragment);
+    GL.linkProgram(SHADER_PROGRAM);
+
+    var _position = GL.getAttribLocation(SHADER_PROGRAM, "position");
+    GL.enableVertexAttribArray(_position);
+    var _normal = GL.getAttribLocation(SHADER_PROGRAM, "normal");
+    GL.enableVertexAttribArray(_normal);
+
+    var _Pmatrix = GL.getUniformLocation(SHADER_PROGRAM, "Pmatrix");
+    var _Vmatrix = GL.getUniformLocation(SHADER_PROGRAM, "Vmatrix");
+    var _Mmatrix = GL.getUniformLocation(SHADER_PROGRAM, "Mmatrix");
+    var _color   = GL.getUniformLocation(SHADER_PROGRAM, "color");
+
+    GL.useProgram(SHADER_PROGRAM);
+
+    var locs = { position: _position, normal: _normal, color: _color, Mmatrix: _Mmatrix };
+
+    /*========================= MEMBUAT OBJEK ========================= */
+    var GREY   = [0.82, 0.82, 0.80];
+    var BLUE   = [0.22, 0.42, 0.80];
+    var YELLOW = [0.85, 0.76, 0.40];
+    var GREEN  = [0.25, 0.72, 0.25];
+
+    var R_ARM = 0.38, L_UPPER = 1.0, L_MID = 1.0, L_LOW = 0.9;
+
+    // Badan = poros utama (pusat kapsul di titik 0,0,0)
+    var Body = new Limb(GL, locs, { radius: 0.9, length: 2.2, topY: 1.1, color: GREY, pos: [0, 0, 0] });
+    // Kepala = bola (length 0)
+    var Head = new Limb(GL, locs, { radius: 0.95, length: 0, topY: 0, color: GREY, pos: [0, 2.85, 0] });
+    Body.childs.push(Head);
+
+    // side: -1 = tangan kiri layar, +1 = tangan kanan layar
+    function makeArm(side) {
+        // Biru  : lengan atas, poros di bahu, parent = badan
+        var blue   = new Limb(GL, locs, { radius: R_ARM, length: L_UPPER, topY: 0, color: BLUE,   pos: [side * 1.3, 1.1, 0] });
+        // Kuning: lengan bawah, poros di siku, parent = biru
+        var yellow = new Limb(GL, locs, { radius: R_ARM, length: L_MID,   topY: 0, color: YELLOW, pos: [0, -L_UPPER, 0] });
+        // Hijau : tangan, poros di pergelangan, parent = kuning
+        var green  = new Limb(GL, locs, { radius: R_ARM, length: L_LOW,   topY: 0, color: GREEN,  pos: [0, -L_MID, 0] });
+
+        Body.childs.push(blue);
+        blue.childs.push(yellow);
+        yellow.childs.push(green);
+        return { side: side, blue: blue, yellow: yellow, green: green };
+    }
+    var ArmL = makeArm(-1);
+    var ArmR = makeArm(+1);
+
+    Body.setup();   // setup() otomatis memanggil setup() semua child
+
+    /*========================= GERAKAN RENANG DADA (SMOOTH) =========================
+       Tanpa keyframe. Arah tiap segmen adalah fungsi kontinu dari fase phi (0..2*PI)
+       memakai sin/cos, jadi kecepatan & arah berubah halus dan siklusnya menyambung
+       sempurna (tidak ada titik berhenti / patah).
+       Arah renang = arah kepala (+Y), dada menghadap +Z. Dihitung untuk tangan kanan,
+       tangan kiri = mirror (x dikali -1).
+         phi = 0      : meluncur (tangan lurus ke atas)
+         phi ~ PI/2   : tangan membuka lebar ke samping
+         phi ~ PI     : menarik air ke bawah
+         phi ~ 3PI/2  : tangan ditarik ke depan dada
+         phi -> 2PI   : tangan didorong ke atas, kembali meluncur
+    ================================================================================ */
+    var CYCLE_MS = 3600;
+
+    function norm(v) {
+        var l = Math.hypot(v[0], v[1], v[2]);
+        return [v[0] / l, v[1] / l, v[2] / l];
+    }
+
+    function armDirections(phi) {
+        var c = Math.cos(phi), s = Math.sin(phi);
+
+        // Lengan atas (biru)
+        var U = norm([
+            0.40 + 0.40 * s - 0.30 * c,
+            0.10 + 0.85 * c,
+            0.35 - 0.30 * s
+        ]);
+        // Lengan bawah (kuning)
+        var F = norm([
+            0.30 + 0.55 * s - 0.25 * c,
+            0.10 + 0.90 * c - 0.25 * s,
+            0.45 - 0.20 * c - 0.30 * s
+        ]);
+        // Tangan (hijau): melanjutkan tekukan kuning terhadap biru secara halus
+        var H = norm([
+            F[0] + 0.5 * (F[0] - U[0]),
+            F[1] + 0.5 * (F[1] - U[1]),
+            F[2] + 0.5 * (F[2] - U[2])
+        ]);
+        return { U: U, F: F, H: H };
+    }
+
+    function applyPose(arm, t) {
+        var d = armDirections(t * 2 * Math.PI);
+        var mirror = function (v) { return [v[0] * arm.side, v[1], v[2]]; };
+        arm.blue.targetDir   = mirror(d.U);
+        arm.yellow.targetDir = mirror(d.F);
+        arm.green.targetDir  = mirror(d.H);
+    }
+
+    /*========================= MATRIKS KAMERA ========================= */
+    var PROJMATRIX = LIBS.get_projection(40, CANVAS.width / CANVAS.height, 1, 100);
+    // kamera PURE dari DEPAN (tanpa rotasi sama sekali, hanya mundur sejauh 14)
+    var VIEWMATRIX = Mat.translate(0, -0.5, -14);
+
+    /*========================= DRAWING ========================= */
+    GL.enable(GL.DEPTH_TEST);
+    GL.depthFunc(GL.LEQUAL);
+    GL.clearColor(0.0, 0.0, 0.0, 1.0);
+    GL.clearDepth(1.0);
+
+    var animate = function (time) {
+        GL.viewport(0, 0, CANVAS.width, CANVAS.height);
+        GL.clear(GL.COLOR_BUFFER_BIT | GL.DEPTH_BUFFER_BIT);
+
+        var t = (time % CYCLE_MS) / CYCLE_MS;
+        applyPose(ArmL, t);
+        applyPose(ArmR, t);
+
+        GL.uniformMatrix4fv(_Pmatrix, false, PROJMATRIX);
+        GL.uniformMatrix4fv(_Vmatrix, false, new Float32Array(VIEWMATRIX));
+
+        Body.render(Mat.identity());
+
+        GL.flush();
+        window.requestAnimationFrame(animate);
+    };
+    animate(0);
+}
+window.addEventListener('load', main);
