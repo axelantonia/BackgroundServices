@@ -123,18 +123,29 @@ class TrackerService : Service(), SensorEventListener {
                 lastStepTime = currentTime
                 Log.d("TrackerService", "Langkah Terdeteksi! Total: $stepCount")
 
-                // Syarat Latihan Selesai: Berjalan > 2 langkah
                 if (stepCount > 2) {
                     sensorManager.unregisterListener(this)
-                    stopSelf() // Hentikan service
+                    finishExercise()
+                     stopSelf()
                 }
             }
         }
     }
 
-    private fun showJumpNotification() {
+    private fun finishExercise() {
         val mainActivityIntent = Intent(this, MainActivity::class.java).apply {
             action = MainActivity.ACTION_SERVICE_STOPPED_JUMP
+            putExtra(MainActivity.EXTRA_JUMP_COUNT, jumpCount)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        startActivity(mainActivityIntent)
+        showJumpNotification(jumpCount)
+    }
+
+    private fun showJumpNotification(totalJumps: Int) {
+        val mainActivityIntent = Intent(this, MainActivity::class.java).apply {
+            action = MainActivity.ACTION_SERVICE_STOPPED_JUMP
+            putExtra(MainActivity.EXTRA_JUMP_COUNT, totalJumps)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         }
 
@@ -146,8 +157,8 @@ class TrackerService : Service(), SensorEventListener {
         )
 
         val jumpNotification = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID_JUMP_DETECTED)
-            .setContentTitle("Lompatan Terdeteksi")
-            .setContentText("Service Berhenti. Ketuk untuk membuka aplikasi")
+            .setContentTitle("Latihan Selesai!")
+            .setContentText("Anda berjalan > 2 langkah. Total lompatan: $totalJumps kali")
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentIntent(pendingMainActivityIntent)
             .setAutoCancel(true)
@@ -157,11 +168,8 @@ class TrackerService : Service(), SensorEventListener {
         try {
             NotificationManagerCompat.from(this).notify(NOTIFICATION_ID_JUMP_DETECTED, jumpNotification)
         } catch (e: SecurityException) {
-            Log.e(
-                "TrackerService", "Gagal memunculkan notifikasi karena permission POST_NOTIFICATION tidak aktif: ${e.message}"
-            )
+            Log.e("TrackerService", "Gagal memunculkan notifikasi: ${e.message}")
         }
-
     }
 
     override fun onDestroy() {

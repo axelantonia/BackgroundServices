@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.provider.CalendarContract
 import android.widget.Button
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
@@ -66,6 +67,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val ACTION_SERVICE_STOPPED_JUMP = "com.example.backgroundservices"
         const val REQUEST_CODE_PERMISSIONS = 101
+        const val EXTRA_JUMP_COUNT = "extra_jump_count"
     }
 
     private fun hasAllPermissions(): Boolean {
@@ -106,8 +108,22 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleIntent(intent: Intent?){
         if (intent?.action == ACTION_SERVICE_STOPPED_JUMP){
+            val jumpCount = intent.getIntExtra(EXTRA_JUMP_COUNT, 0)
             statusTextView.text = "Background service sudah berhenti karena Anda melompat"
+            createCalendarEvent(jumpCount)
         }
+    }
+
+    private fun createCalendarEvent(jumpCount: Int) {
+        val intent = Intent(Intent.ACTION_INSERT).apply {
+            data = CalendarContract.Events.CONTENT_URI
+            putExtra(CalendarContract.Events.TITLE, "Selesai")
+            putExtra(CalendarContract.Events.DESCRIPTION, "Berhasil menyelesaikan lompatan dengan total $jumpCount lompatan.")
+            putExtra(CalendarContract.Events.EVENT_LOCATION, "Rumah / Gym")
+            putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, System.currentTimeMillis())
+            putExtra(CalendarContract.EXTRA_EVENT_END_TIME, System.currentTimeMillis() + 30 * 60 * 1000)
+        }
+        startActivity(intent)
     }
 
     override fun onNewIntent (intent: Intent) {
